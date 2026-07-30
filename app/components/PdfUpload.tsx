@@ -1,6 +1,7 @@
 "use client";
 import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
-
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 type AuthMode = "signin" | "signup";
 type ChatRole = "user" | "bot";
 
@@ -168,7 +169,7 @@ export const PdfUpload = () => {
 
   async function reloadWorkspaces(userId: string) {
     try {
-      const response = await fetch(`${API_BASE}/api/v1/create_workspace/?user_id=${encodeURIComponent(userId)}`);
+      const response = await fetch(`${API_BASE}/api/v1/workspace/fetch?user_id=${encodeURIComponent(userId)}`);
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
         throw new Error(payload.detail || "Unable to load workspaces.");
@@ -179,18 +180,6 @@ export const PdfUpload = () => {
         : [];
 
       setWorkspaces(nextWorkspaces);
-      setSelectedWorkspaceId((current) => {
-        if (current && nextWorkspaces.some((workspace) => workspace.id === current)) {
-          return current;
-        }
-        return nextWorkspaces[0]?.id ?? null;
-      });
-      setSelectedChatId((current) => {
-        if (!current) {
-          return null;
-        }
-        return nextWorkspaces.some((workspace) => workspace.chats.some((chat) => chat.id === current)) ? current : null;
-      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load workspaces.");
     }
@@ -289,7 +278,7 @@ export const PdfUpload = () => {
     try {
       setError("");
       setStatusMessage("Creating workspace...");
-      const response = await fetch(`${API_BASE}/api/v1/create_workspace/`, {
+      const response = await fetch(`${API_BASE}/api/v1/workspace/create`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ workspace_name: trimmedName, user_id: authState?.userId || "anonymous" }),
@@ -311,7 +300,7 @@ export const PdfUpload = () => {
       };
 
       setWorkspaces((current) => [nextWorkspace, ...current]);
-      setSelectedWorkspaceId(nextWorkspace.id);
+      setSelectedWorkspaceId(null);
       setSelectedChatId(null);
       setWorkspaceNameInput("");
       setStatusMessage(`Workspace "${nextWorkspace.name}" is ready.`);
@@ -505,8 +494,9 @@ export const PdfUpload = () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          collection_name: workspace.apiName,
+          workspace_id: selectedWorkspaceId,
           question: historyContext,
+          collection_name: selectedWorkspace.apiName
         }),
       });
 
@@ -548,7 +538,26 @@ export const PdfUpload = () => {
     window.localStorage.removeItem(AUTH_STORAGE_KEY);
   };
 
-  if (!authState) {
+  const handleAskQuestions = async () => {
+    const response = await fetch(`${API_BASE}/api/v1/vectorize`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({collection_name: selectedWorkspace?.apiName, workspace_id: selectedWorkspaceId}),
+      });
+
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(payload.detail || "The agent could not answer right now.");
+    }
+
+    if (payload.failed.length){
+      throw new Error("There is an issue with the uploaded files try later...")
+    }
+
+    setActiveView("chat")
+  }
+
+  if (!authState && !selectedWorkspaceId) {
     return (
       <main className="min-h-screen bg-slate-950 px-4 py-10 text-slate-100 sm:px-6 lg:px-8">
         <div className="mx-auto flex max-w-5xl flex-col gap-6 rounded-3xl border border-slate-800 bg-slate-900/90 p-6 shadow-2xl shadow-black/40 sm:p-10">
@@ -679,7 +688,7 @@ export const PdfUpload = () => {
           </div>
           <div className="flex items-center gap-3">
             <div className="rounded-full border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-300">
-              {authState.displayName || authState.username}
+              {authState?.displayName || authState?.username}
             </div>
             <button
               type="button"
@@ -852,7 +861,7 @@ export const PdfUpload = () => {
                       Select PDF files
                     </button>
                     {selectedWorkspace.files.length ? (
-                      <button type="button" onClick={() => setActiveView("chat")} className="rounded-xl border border-slate-700 px-4 py-2 text-sm text-slate-300">
+                      <button type="button" onClick={() => handleAskQuestions()} className="rounded-xl border border-slate-700 px-4 py-2 text-sm text-slate-300">
                         Ask questions
                       </button>
                     ) : null}
@@ -864,8 +873,12 @@ export const PdfUpload = () => {
                     {selectedChat?.messages.length ? (
                       selectedChat.messages.map((message, index) => (
                         <div key={`${message.role}-${index}`} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
-                          <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm ${message.role === "user" ? "bg-sky-500 text-white" : "bg-slate-800 text-slate-200"}`}>
-                            {message.content}
+                          <div className={`max-w-[85%] rounded-2xl px-5 py-3.5 text-[15px] leading-relaxed tracking-wide ${message.role === "user" ? "bg-sky-500 text-white" : "bg-slate-900 border border-slate-800 text-slate-100"}`}>
+                            <div className={message.role === "user" ? "prose prose-invert" : "prose prose-invert max-w-none prose-headings:text-white prose-strong:text-sky-400 prose-ul:list-disc prose-table:border-collapse prose-th:border prose-th:border-slate-800 prose-th:p-2 prose-td:border prose-td:border-slate-800 prose-td:p-2"}>
+                              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                {message.content}
+                              </ReactMarkdown>
+                            </div>
                           </div>
                         </div>
                       ))
