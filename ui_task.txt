@@ -1,0 +1,45 @@
+We need to create ui for our backend, Primarly create a simpilistic UI. 
+
+Following are the functionalities that we would need.
+
+Topic1
+1. SignUp Page, where user enters their email name, password and confirm password, along with the username.
+2. Once the user already creates the name, and signups, we need to allow signIn with the user and password.
+3. Both SignUp and SignIn are both processed through the backend.
+4. When the user tries to signIn and if the username/email is present and password is wrong show username and pasword combination is not present.
+5. when user tries to signIn and the username is not present in the appwrite then route to SignUp page.
+
+Topic2
+1. Initial there should be a dashbord showing the user profile and the list of workspaces created.
+2. the dashboard should be visual and well organised but very very simpilistic.
+
+Topic3
+1. Add a create a new workspace button, on click of the button new collecton_name is created and written in the appwrite.
+2. Once a workspace is created then there is a option to upload pdf files only.
+3. If one or more pdf files are uploaded then there is a should appear a "ASK Questions" button in the same space.
+4. Once a pdf is uploaded and the "ASK QUESTIONS" button is visible, the upload option should still be present.
+5. User should be able to toggle between the upload screen and chat screen, using a toggle button.
+
+Topic4
+1. The Chat Screen should be conversational, meaning bot and the user messages should be visble users on to right and bot's on to the left.
+2. The conversation should always be passed as a context to the Agent.
+3. Below should be a chat text box, with send botton to press and send to the Agent.
+4. The design should be extremly simplistic and functionally superior.
+
+Topic5
+1. User should be able to create more than one chat in a given collection.
+2. A chat should be autosaved in the chats table in appwrite db with unique combination of user_id and collection_id. 
+3. A chat should be saved in a jsonb format with flow keys user and bot, in the same order that the conversation goes.
+4. User should be able to delete the whole chat with the help of chat_id for a chat created and the same functionality should be applied backed to appwrite database chats.
+5. A chat should be updated everytime the users asks a new question, with the help of chat_id.
+
+Topic6
+1. User should be able to go back to the dashboard at any point of time.
+2. User should be able to see the list of workspaces they created, and also create new workspace botton should always be present on the top right.
+3. When the user closes the tab and opens it, the if the given signIN credentials are in cache, then it should load the dashboard.
+4. When a user select on a workspace from the workspace list, then all the pdf names uploaded on that collection should show up and also all the chat names too as a list.
+5. when the user selects on the chat from the chat list then user should see the full conversation.
+
+
+Make sure you make changes surgically, you may edit frontend and backend simulatneously, try to do it carefully and use advanced and condenced code with fucntional superiority and space optimization.
+you may write code to create table on the flow if it does not exist, make sure you ask me the right questions whereever you have doubts
