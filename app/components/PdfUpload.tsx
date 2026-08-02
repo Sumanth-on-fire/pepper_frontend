@@ -121,6 +121,14 @@ const writeStoredState = (key: string, value: unknown) => {
   window.localStorage.setItem(key, JSON.stringify(value));
 };
 
+const LoadingState = ({ title, description }: { title: string; description: string }) => (
+  <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-8 text-center">
+    <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-2 border-sky-400 border-t-transparent" />
+    <p className="font-medium text-slate-200">{title}</p>
+    <p className="mt-1 text-sm text-slate-400">{description}</p>
+  </div>
+);
+
 export const PdfUpload = () => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [authMode, setAuthMode] = useState<AuthMode>("signin");
@@ -135,6 +143,7 @@ export const PdfUpload = () => {
   const [error, setError] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoadingData, setIsLoadingData] = useState(false);
   const [workspaces, setWorkspaces] = useState<WorkspaceRecord[]>([]);
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(null);
   const [workspaceNameInput, setWorkspaceNameInput] = useState("");
@@ -168,6 +177,9 @@ export const PdfUpload = () => {
   }, [selectedChatId, selectedWorkspace]);
 
   async function reloadWorkspaces(userId: string) {
+    setIsLoadingData(true);
+    setError("");
+
     try {
       const response = await fetch(`${API_BASE}/api/v1/workspace/fetch?user_id=${encodeURIComponent(userId)}`);
       const payload = await response.json().catch(() => ({}));
@@ -182,6 +194,8 @@ export const PdfUpload = () => {
       setWorkspaces(nextWorkspaces);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load workspaces.");
+    } finally {
+      setIsLoadingData(false);
     }
   }
 
@@ -539,23 +553,38 @@ export const PdfUpload = () => {
   };
 
   const handleAskQuestions = async () => {
-    const response = await fetch(`${API_BASE}/api/v1/vectorize`, {
+    if (!selectedWorkspace) {
+      return;
+    }
+
+    setIsLoadingData(true);
+    setError("");
+    setStatusMessage("Preparing your workspace context...");
+
+    try {
+      const response = await fetch(`${API_BASE}/api/v1/vectorize`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({collection_name: selectedWorkspace?.apiName, workspace_id: selectedWorkspaceId}),
+        body: JSON.stringify({ collection_name: selectedWorkspace.apiName, workspace_id: selectedWorkspaceId }),
       });
 
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      throw new Error(payload.detail || "The agent could not answer right now.");
-    }
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.detail || "The agent could not answer right now.");
+      }
 
-    if (payload.failed.length){
-      throw new Error("There is an issue with the uploaded files try later...")
-    }
+      if (payload.failed?.length) {
+        throw new Error("There is an issue with the uploaded files try later...");
+      }
 
-    setActiveView("chat")
-  }
+      setActiveView("chat");
+      setStatusMessage("Workspace context is ready.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "The agent could not answer right now.");
+    } finally {
+      setIsLoadingData(false);
+    }
+  };
 
   if (!authState && !selectedWorkspaceId) {
     return (
@@ -724,7 +753,9 @@ export const PdfUpload = () => {
                 </form>
               </div>
 
-              {workspaces.length ? (
+              {isLoadingData ? (
+                <LoadingState title="Loading your collections" description="We’re pulling your workspace data from the server." />
+              ) : workspaces.length ? (
                 <div className="grid gap-3">
                   {workspaces.map((workspace) => (
                     <button
@@ -848,7 +879,11 @@ export const PdfUpload = () => {
                 </div>
               </div>
 
-              {activeView === "upload" ? (
+              {isLoadingData ? (
+                <div className="flex h-[520px] items-center justify-center rounded-2xl border border-slate-800 bg-slate-950/70 p-6">
+                  <LoadingState title="Preparing workspace context" description="We’re processing your request so the UI stays clear while data is loading." />
+                </div>
+              ) : activeView === "upload" ? (
                 <div className="space-y-4">
                   <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-slate-700 bg-slate-950/70 p-8 text-center text-sm text-slate-400">
                     <span className="mb-2 text-lg font-semibold text-slate-200">Drop in a PDF</span>
